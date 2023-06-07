@@ -1,0 +1,40 @@
+<canvas id="ctx" width="500" height="500" style="border:1px solid #000000;"></canvas>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    var ctx = document.getElementById("ctx").getContext("2d")
+    ctx.font = '30px Arial'
+
+    var socket = io()
+
+    socket.on("newPosition", function(data) {
+        ctx.clearRect(0,0,500, 500)
+        for(var i = 0; i < data.length; i++) {
+            ctx.fillText(data[i].name, data[i].x, data[i].y)
+        }
+    })
+
+    document.onkeydown = function(event) {
+        console.log(event.key)
+        if (["a", "A", "ArrowUp"].includes(event.key))
+            socket.emit("keyPress", {inputId:"up", state:true})
+        if (["s", "S", "ArrowDown"].includes(event.key))
+            socket.emit("keyPress", {inputId:"down", state:true})
+        if (["q", "Q", "ArrowLeft"].includes(event.key))
+            socket.emit("keyPress", {inputId:"left", state:true})
+        if (["d", "d", "ArrowRight"].includes(event.key))
+            socket.emit("keyPress", {inputId:"right", state:true})
+    }
+
+    document.onkeyup = function(event) {
+        if (["a", "A", "ArrowUp"].includes(event.key))
+            socket.emit("keyPress", {inputId:"up", state:false})
+        if (["s", "S", "ArrowDown"].includes(event.key))
+            socket.emit("keyPress", {inputId:"down", state:false})
+        if (["q", "Q", "ArrowLeft"].includes(event.key))
+            socket.emit("keyPress", {inputId:"left", state:false})
+        if (["d", "d", "ArrowRight"].includes(event.key))
+            socket.emit("keyPress", {inputId:"right", state:false})
+    }
+
+</script>
