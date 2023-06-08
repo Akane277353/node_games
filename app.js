@@ -158,7 +158,6 @@ io.sockets.on("connection", function(socket){
     })
 
     socket.on("evalServ", function(data) {
-        console.log(data)
         var res = eval(data)
         socket.emit("evalAnswer", res)
     })
