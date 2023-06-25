@@ -11,9 +11,13 @@ app.use("/client", express.static(__dirname + "/public"))
 
 serv.listen(2000)
 
-
-
 var S_LIST = {}
+
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////    ENTITY      ////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
 
 var Entity = function() {
     var self = {
@@ -32,9 +36,19 @@ var Entity = function() {
         self.x += self.speedx
         self.y += self.speedy
     }
+
+    self.getDistance = function (p) {
+        return Math.sqrt(Math.pow(self.x - p.x, 2) + Math.pow(self.y - p.y, 2))
+    }
     
     return self
 }
+
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////    PLAYER      ////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
 
 var Player = function(id) {
     var self = Entity()
@@ -43,13 +57,29 @@ var Player = function(id) {
     self.pressingLeft = false
     self.pressingUp = false
     self.pressingDown = false
+    self.shootDown = false
     self.maxspeed = 10
+    self.mouseAngle = 0
     self.name = "" + Math.floor(10 * Math.random())
+    self.special = false
 
     var super_update = self.update
     self.update = function() {
         self.updateSpeed()
-        super_update( )
+        super_update()
+        if (self.shootDown) {
+            self.shootBullet(self.mouseAngle)
+        }
+        if (self.shootDown && self.special) {
+            for (var i = -3; i < 3; i++)
+            self.shootBullet(i * 10 + self.mouseAngle)
+        }
+    }
+
+    self.shootBullet = function(angle) {
+        var b = Bullet(self.id, angle)
+        b.x = self.x
+        b.y = self.y
     }
 
     self.updateSpeed = function() {
@@ -66,8 +96,6 @@ var Player = function(id) {
     return self
 }
 
-
-
 Player.list = {}
 
 Player.onConnect = function(socket) {
@@ -77,12 +105,16 @@ Player.onConnect = function(socket) {
     socket.on("keyPress", function(data){
         if (data.inputId === "left")
             player.pressingLeft = data.state
-        if (data.inputId === "right")
+        else if (data.inputId === "right")
             player.pressingRight = data.state
-        if (data.inputId === "up")
+        else if (data.inputId === "up")
             player.pressingUp = data.state
-        if (data.inputId === "down")
+        else if (data.inputId === "down")
             player.pressingDown = data.state
+        else if (data.inputId === "attack")
+            player.shootDown = data.state
+        else if (data.inputId === "mouseAngle")
+            player.mouseAngle = data.state
     })
 }
 
@@ -101,19 +133,35 @@ Player.update = function() {
 }
 
 
-var Bullet = function(angle) {
+////////////////////////////////////////////////////////////////////////
+////////////////////////    BULLET      ////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+
+var Bullet = function(parent, angle) {
     var self = Entity()
     self.id = Math.random()
     self.speedx = Math.cos(angle / 180 * Math.PI) * 10
     self.speedy = Math.sin(angle / 180 * Math.PI) * 10
+    self.parent = parent
+    self.range = 20
 
     self.timer = 0
     self.toRemove = false
 
     var super_update = self.update
     self.update = function() {
-        if (self.timer++ > 10) { self.toRemove = true }
-        super_update( )
+        if (self.timer++ > self.range) { self.toRemove = true }
+        super_update()
+
+        for (var i in Player.list) {
+            var p = Player.list[i]
+            if (self.getDistance(p) < 32 && self.parent !== p.id) {
+                // TODO handle collision
+                self.toRemove = true
+            }
+        }
+
     }
 
     Bullet.list[self.id] = self
@@ -124,18 +172,23 @@ Bullet.list = {}
 
 
 Bullet.update = function() {
-    if (Math.random() < 0.1) {
-        Bullet(Math.random() * 360)
-    }
-
     var others = []
     for(var i in Bullet.list) {
         var bullet = Bullet.list[i]
         bullet.update()
-        others.push({x:bullet.x, y:bullet.y})
+        if (bullet.toRemove) 
+            delete Bullet.list[i]
+        else
+            others.push({x:bullet.x, y:bullet.y})
     }
     return others
 }
+
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////    SOCKET      ////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
 
 var io = require("socket.io")(serv, {})
 io.sockets.on("connection", function(socket){
@@ -158,7 +211,8 @@ io.sockets.on("connection", function(socket){
     })
 
     socket.on("evalServ", function(data) {
-        var res = eval(data)
+        res = "what the fuck are you doing here !"
+        //var res = eval(data)
         socket.emit("evalAnswer", res)
     })
 
